@@ -35,3 +35,7 @@ pip freeze > requirements.txt
 ```
 pip install -r requirements.txt
 ```
+
+# BASE DE DONNEE
+
+création de la base de donnée pour mysql dans init__.sql
