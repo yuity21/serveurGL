@@ -39,3 +39,9 @@ pip install -r requirements.txt
 # Base de donnée
 
 création de la base de donnée pour mysql dans init__.sql
+
+Assurez vous d'avoir la dernière version de pip installer !
+
+```
+python -m pip install --upgrade pip
+```

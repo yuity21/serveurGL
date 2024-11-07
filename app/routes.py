@@ -17,6 +17,14 @@ def register():
     # Vérifier si le rôle est valide
     if role not in roles_valides:
         return jsonify({"message": "Rôle non valide. Choisissez entre 'administrateur', 'chef d'équipe', ou 'utilisateur'."}), 400
+    
+     # Vérifie la sécurité du mot de passe
+    if not User.is_password_secure(password):
+        return jsonify({"message": "Mot de passe non sécurisé. Il doit contenir au moins 8 caractères, dont des lettres, des chiffres et un caractère spécial."}), 400
+
+    # Vérifie si l'email est valide
+    if not User.is_email_valid(email):
+        return jsonify({"message": "Email invalide. Entrez une adresse email correcte."}), 400
 
     # Vérifie si l'utilisateur existe déjà
     if User.find_by_username(username):
@@ -33,6 +41,6 @@ def login():
     password = data.get('password')
 
     user = User.find_by_username(username)
-    if user and user['password'] == password:
+    if user and User.verify_password(password, user['password'].encode('utf-8')):
         return jsonify({"message": "Connexion réussie."}), 200
     return jsonify({"message": "Nom d'utilisateur ou mot de passe incorrect."}), 401
