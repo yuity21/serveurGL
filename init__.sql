@@ -5,9 +5,11 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    role ENUM('administrateur', 'chef d\'équipe', 'utilisateur') NOT NULL
 );
 
-INSERT INTO users (username, password, email) VALUES
-('testuser1', 'password123', 'test1@example.com'),
-('testuser2', 'securepass', 'test2@example.com');
+INSERT INTO users (username, password, email, role) VALUES
+('testuser1', 'password123', 'test1@example.com', 'administrateur'),
+('testuser2', 'securepass', 'test2@example.com', 'chef d\'équipe'),
+('testuser3', 'mypassword', 'test3@example.com', 'utilisateur');
