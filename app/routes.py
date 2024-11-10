@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.models import User, Project
+from app.db import get_db
 
 auth = Blueprint('auth', __name__)
 project = Blueprint('project', __name__)
@@ -64,3 +65,40 @@ def create_project():
     # Créer le projet
     response, status_code = Project.create_project(name, description, start_date, end_date, state, username, members)
     return jsonify(response), status_code
+
+@project.route('/update_state', methods=['POST'])
+def update_project_state():
+    data = request.get_json()
+    username = data.get('username')
+    project_name = data.get('project_name')
+
+    # Vérifie si l'utilisateur existe et s'il est autorisé
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    if user['role'] not in ['administrateur', 'chef d\'équipe']:
+        return jsonify({"message": "Vous n'avez pas l'autorisation de modifier l'état du projet."}), 403
+
+    # Met à jour l'état du projet si l'utilisateur est autorisé
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM projects WHERE name = %s", (project_name,))
+    project = cursor.fetchone()
+
+    if not project:
+        cursor.close()
+        return jsonify({"message": "Projet non trouvé."}), 404
+
+    if project['state'] == 'terminé':
+        cursor.close()
+        return jsonify({"message": "Le projet est déjà terminé."}), 400
+
+    cursor.execute(
+        "UPDATE projects SET state = 'terminé' WHERE name = %s",
+        (project_name,)
+    )
+    db.commit()
+    cursor.close()
+
+    return jsonify({"message": f"L'état du projet '{project_name}' a été modifié à 'terminé'."}), 200
