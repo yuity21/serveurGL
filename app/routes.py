@@ -102,3 +102,49 @@ def update_project_state():
     cursor.close()
 
     return jsonify({"message": f"L'état du projet '{project_name}' a été modifié à 'terminé'."}), 200
+
+@project.route('/display', methods=['POST'])
+def display_data():
+    data = request.get_json()
+    username = data.get('username')
+
+    # Vérifie si l'utilisateur existe
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Récupère l'action demandée (liste des utilisateurs ou projets de l'utilisateur)
+    display_type = data.get('display_type')
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    if display_type == 'users':
+        # Affiche la liste de tous les utilisateurs
+        cursor.execute("SELECT username, email, role, created_at FROM users")
+        users = cursor.fetchall()
+        cursor.close()
+        return jsonify({"users": users}), 200
+
+    elif display_type == 'projects':
+        if user['role'] == 'administrateur':
+            # Si l'utilisateur est un administrateur, afficher tous les projets
+            cursor.execute("SELECT * FROM projects")
+        else:
+            # Sinon, afficher les projets auxquels il appartient
+            cursor.execute("""
+                SELECT p.id, p.name, p.description, p.start_date, p.end_date, p.state, p.created_by
+                FROM projects p
+                JOIN project_members pm ON p.id = pm.project_id
+                WHERE pm.username = %s
+            """, (username,))
+        
+        projects = cursor.fetchall()
+        cursor.close()
+        return jsonify({"projects": projects}), 200
+
+    else:
+        # Si le type de données à afficher n'est pas spécifié ou incorrect
+        cursor.close()
+        return jsonify({"message": "Type d'affichage non valide. Utilisez 'users' ou 'projects'."}), 400
+
