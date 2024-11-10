@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from app.models import User
+from app.models import User, Project
 
 auth = Blueprint('auth', __name__)
+project = Blueprint('project', __name__)
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -44,3 +45,22 @@ def login():
     if user and User.verify_password(password, user['password'].encode('utf-8')):
         return jsonify({"message": "Connexion réussie."}), 200
     return jsonify({"message": "Nom d'utilisateur ou mot de passe incorrect."}), 401
+
+@project.route('/create', methods=['POST'])
+def create_project():
+    data = request.get_json()
+    username = data.get('username')
+    name = data.get('name')
+    description = data.get('description')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+    members = data.get('members', [])
+    state = data.get('state', 'en cours')
+
+    # Vérifier les champs requis
+    if not all([username, name, start_date, end_date]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Créer le projet
+    response, status_code = Project.create_project(name, description, start_date, end_date, state, username, members)
+    return jsonify(response), status_code

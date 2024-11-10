@@ -51,3 +51,48 @@ class User:
         user = cursor.fetchone()
         cursor.close()
         return user
+    
+class Project:
+    def __init__(self, name, description, start_date, end_date, state, created_by):
+        self.name = name
+        self.description = description
+        self.start_date = start_date
+        self.end_date = end_date
+        self.state = state
+        self.created_by = created_by
+
+    @staticmethod
+    def create_project(name, description, start_date, end_date, state, created_by, members):
+        db = get_db()
+        cursor = db.cursor()
+
+        # Vérifier si le créateur du projet est un administrateur ou un chef d'équipe
+        creator = User.find_by_username(created_by)
+        if not creator or creator['role'] not in ['administrateur', 'chef d\'équipe']:
+            cursor.close()
+            return {"message": "Seuls les administrateurs ou chefs d'équipe peuvent créer un projet."}, 403
+
+        # Vérifier que tous les membres d'équipe existent
+        invalid_members = [member for member in members if not User.find_by_username(member)]
+        if invalid_members:
+            cursor.close()
+            return {"message": f"Les utilisateurs suivants n'existent pas : {', '.join(invalid_members)}"}, 400
+
+        # Créer le projet
+        cursor.execute(
+            "INSERT INTO projects (name, description, start_date, end_date, state, created_by) VALUES (%s, %s, %s, %s, %s, %s)",
+            (name, description, start_date, end_date, state, created_by)
+        )
+        project_id = cursor.lastrowid
+
+        # Ajouter les membres de l'équipe
+        for member in members:
+            cursor.execute(
+                "INSERT INTO project_members (project_id, username) VALUES (%s, %s)",
+                (project_id, member)
+            )
+
+        db.commit()
+        cursor.close()
+        return {"message": "Projet créé avec succès."}, 201
+

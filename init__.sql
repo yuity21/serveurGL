@@ -8,10 +8,23 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     role ENUM('administrateur', 'chef d\'équipe', 'utilisateur') NOT NULL
 );
---optionnel et inutile depuis bcrypt qui hache les mots de passes car connection a ses comptes impossible car non encodé--
-INSERT INTO users (username, password, email, role) VALUES
-('testuser1', 'password123', 'test1@example.com', 'administrateur'),
-('testuser2', 'securepass', 'test2@example.com', 'chef d\'équipe'),
-('testuser3', 'mypassword', 'test3@example.com', 'utilisateur');
 
-SELECT * FROM users ;
+CREATE TABLE projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    state ENUM('en cours', 'terminé') NOT NULL DEFAULT 'en cours',
+    created_by VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(username)
+);
+
+CREATE TABLE project_members (
+    project_id INT,
+    username VARCHAR(50),
+    PRIMARY KEY (project_id, username),
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (username) REFERENCES users(username)
+);
