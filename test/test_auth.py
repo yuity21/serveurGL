@@ -10,30 +10,23 @@ class AuthTestCase(unittest.TestCase):
         self.app.config['TESTING'] = True
         self.app.config['WTF_CSRF_ENABLED'] = False
         self.client = self.app.test_client()
-        
-        # Connexion à la base de données
-        with self.app.app_context():
-            db = get_db()
-            cursor = db.cursor()
-            cursor.execute("DELETE FROM users")  # Nettoie la table avant chaque test
-            db.commit()
-            cursor.close()
 
     def tearDown(self):
-        # Nettoyage des ressources après chaque test
+        # Nettoyage des ressources spécifiques après chaque test
         with self.app.app_context():
             db = get_db()
             cursor = db.cursor()
-            cursor.execute("DELETE FROM users")  # Nettoie la table après chaque test
+            # Suppression des utilisateurs créés pour les tests
+            cursor.execute("DELETE FROM users WHERE username LIKE 'testuser_%'")
             db.commit()
             cursor.close()
 
     def test_register_valid_user(self):
         # Teste l'enregistrement d'un utilisateur valide
         response = self.client.post('/auth/register', json={
-            "username": "testuser1",
+            "username": "testuser_valid",
             "password": "StrongPass123!",
-            "email": "testuser1@example.com",
+            "email": "testuser_valid@example.com",
             "role": "utilisateur"
         })
         self.assertEqual(response.status_code, 201)
@@ -42,9 +35,9 @@ class AuthTestCase(unittest.TestCase):
     def test_register_invalid_password(self):
         # Teste un mot de passe non sécurisé
         response = self.client.post('/auth/register', json={
-            "username": "testuser2",
+            "username": "testuser_invalidpass",
             "password": "weak",
-            "email": "testuser2@example.com",
+            "email": "testuser_invalidpass@example.com",
             "role": "utilisateur"
         })
         self.assertEqual(response.status_code, 400)
@@ -53,7 +46,7 @@ class AuthTestCase(unittest.TestCase):
     def test_register_invalid_email(self):
         # Teste un email invalide
         response = self.client.post('/auth/register', json={
-            "username": "testuser3",
+            "username": "testuser_invalidemail",
             "password": "ValidPass123!",
             "email": "invalid-email",
             "role": "utilisateur"
@@ -64,9 +57,9 @@ class AuthTestCase(unittest.TestCase):
     def test_register_invalid_role(self):
         # Teste un rôle non valide
         response = self.client.post('/auth/register', json={
-            "username": "testuser4",
+            "username": "testuser_invalidrole",
             "password": "ValidPass123!",
-            "email": "testuser4@example.com",
+            "email": "testuser_invalidrole@example.com",
             "role": "invalide_role"
         })
         self.assertEqual(response.status_code, 400)
@@ -75,13 +68,13 @@ class AuthTestCase(unittest.TestCase):
     def test_register_existing_user(self):
         # Teste l'enregistrement d'un utilisateur déjà existant
         self.client.post('/auth/register', json={
-            "username": "existinguser",
+            "username": "testuser_existing",
             "password": "StrongPass123!",
-            "email": "existinguser@example.com",
+            "email": "testuser_existing@example.com",
             "role": "utilisateur"
         })
         response = self.client.post('/auth/register', json={
-            "username": "existinguser",
+            "username": "testuser_existing",
             "password": "DifferentPass456!",
             "email": "anotheremail@example.com",
             "role": "utilisateur"
@@ -93,14 +86,14 @@ class AuthTestCase(unittest.TestCase):
         # Teste la connexion d'un utilisateur enregistré
         # Enregistrement de l'utilisateur
         self.client.post('/auth/register', json={
-            "username": "testuser5",
+            "username": "testuser_login",
             "password": "StrongPass123!",
-            "email": "testuser5@example.com",
+            "email": "testuser_login@example.com",
             "role": "utilisateur"
         })
         # Connexion
         response = self.client.post('/auth/login', json={
-            "username": "testuser5",
+            "username": "testuser_login",
             "password": "StrongPass123!"
         })
         self.assertEqual(response.status_code, 200)
@@ -109,13 +102,13 @@ class AuthTestCase(unittest.TestCase):
     def test_login_invalid_password(self):
         # Teste la connexion avec un mot de passe incorrect
         self.client.post('/auth/register', json={
-            "username": "testuser6",
+            "username": "testuser_wrongpass",
             "password": "StrongPass123!",
-            "email": "testuser6@example.com",
+            "email": "testuser_wrongpass@example.com",
             "role": "utilisateur"
         })
         response = self.client.post('/auth/login', json={
-            "username": "testuser6",
+            "username": "testuser_wrongpass",
             "password": "WrongPass"
         })
         self.assertEqual(response.status_code, 401)
