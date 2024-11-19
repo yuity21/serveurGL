@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
-from app.models import User, Project
+from app.models import User, Project, Task
 from app.db import get_db
+from datetime import datetime
 
 auth = Blueprint('auth', __name__)
 project = Blueprint('project', __name__)
+task = Blueprint('task', __name__)
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -148,3 +150,75 @@ def display_data():
         cursor.close()
         return jsonify({"message": "Type d'affichage non valide. Utilisez 'users' ou 'projects'."}), 400
 
+@task.route('/create', methods=['POST'])
+def create_task():
+    data = request.get_json()
+    username = data.get('username')
+    project_name = data.get('nom_projet')
+    task_name = data.get('task_name')
+    description = data.get('description', '')
+    assigned_to = data.get('assigned_to', [])
+    priority = data.get('priority', 'moyenne')
+    status = data.get('status', 'A faire')
+    due_date = data.get('date_echeance')
+
+    # Vérifier les champs requis
+    if not all([username, project_name, task_name, priority, due_date]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Vérifier si l'utilisateur existe et est autorisé à créer la tâche
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    if user['role'] not in ['administrateur', 'chef d\'équipe']:
+        return jsonify({"message": "Vous n'avez pas l'autorisation de créer une tâche."}), 403
+
+    # Vérifier si le projet existe
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM projects WHERE name = %s", (project_name,))
+    project = cursor.fetchone()
+
+    if not project:
+        cursor.close()
+        return jsonify({"message": "Projet non trouvé."}), 404
+
+    # Vérifier si l'utilisateur est un chef d'équipe du projet ou un administrateur
+    if user['role'] != 'administrateur':
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (project['id'], username))
+        member = cursor.fetchone()
+        if not member:
+            cursor.close()
+            return jsonify({"message": "Vous devez faire partie du projet pour créer une tâche."}), 403
+
+    # Vérifier que les membres assignés font partie du projet
+    invalid_members = [member for member in assigned_to if not User.find_by_username(member)]
+    if invalid_members:
+        cursor.close()
+        return jsonify({"message": f"Les utilisateurs suivants n'existent pas : {', '.join(invalid_members)}"}), 400
+
+    for member in assigned_to:
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (project['id'], member))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"message": f"L'utilisateur {member} ne fait pas partie du projet."}), 400
+
+    # Convertir la date d'échéance (str) en objet datetime.date
+    try:
+        due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"message": "Le format de la date d'échéance est incorrect. Utilisez AAAA-MM-JJ."}), 400
+    # Vérifier que la date d'échéance est valide
+    if due_date_obj > project['end_date']:
+        cursor.close()
+        return jsonify({"message": "La date d'échéance ne peut pas dépasser la date de fin du projet."}), 400
+
+    # Créer la tâche
+    task_id = Task.create_task(project['id'], task_name, description, priority, status, due_date, username)
+
+    # Ajouter les membres assignés à la tâche
+    Task.assign_members(task_id, assigned_to)
+
+    cursor.close()
+    return jsonify({"message": "Tâche créée avec succès."}), 201

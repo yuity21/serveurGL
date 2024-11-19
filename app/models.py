@@ -96,3 +96,38 @@ class Project:
         cursor.close()
         return {"message": "Projet créé avec succès."}, 201
 
+class Task:
+    def __init__(self, project_id, task_name, description, priority, status, due_date, created_by):
+        self.project_id = project_id
+        self.task_name = task_name
+        self.description = description
+        self.priority = priority
+        self.status = status
+        self.due_date = due_date
+        self.created_by = created_by
+
+    @staticmethod
+    def create_task(project_id, task_name, description, priority, status, due_date, created_by):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO tasks (project_id, task_name, description, priority, status, due_date, created_by) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (project_id, task_name, description, priority, status, due_date, created_by)
+        )
+        task_id = cursor.lastrowid
+        db.commit()
+        cursor.close()
+        return task_id
+
+    @staticmethod
+    def assign_members(task_id, assigned_to):
+        db = get_db()
+        cursor = db.cursor()
+        for member in assigned_to:
+            cursor.execute(
+                "INSERT INTO task_assignments (task_id, username) VALUES (%s, %s)",
+                (task_id, member)
+            )
+        db.commit()
+        cursor.close()

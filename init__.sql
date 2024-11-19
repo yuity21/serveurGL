@@ -40,3 +40,30 @@ DO
   SET state = 'terminé'
   WHERE state = 'en cours' AND end_date <= CURDATE();
 
+-- Table des tâches
+drop table if exists tasks;
+create table tasks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    task_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    priority ENUM('haute', 'moyenne', 'basse') NOT NULL,
+    status ENUM('A faire', 'en cours', 'terminée') DEFAULT 'A faire',
+    due_date DATE,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (created_by) REFERENCES users(username)
+);
+
+-- Table des membres assignés aux tâches
+drop table if exists task_assignments;
+create table task_assignments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (username) REFERENCES users(username)
+);
+
+
