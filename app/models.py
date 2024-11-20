@@ -131,3 +131,64 @@ class Task:
             )
         db.commit()
         cursor.close()
+        
+    @staticmethod
+    def add_dependency(task_name_priority, task_name_dep):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Obtenir les tâches par leur nom
+        cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name_priority,))
+        task_priority = cursor.fetchone()
+
+        cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name_dep,))
+        task_dep = cursor.fetchone()
+
+        if not task_priority or not task_dep:
+            cursor.close()
+            return {"message": "Une ou plusieurs tâches n'ont pas été trouvées."}, 404
+
+        # Vérifier que la dépendance ne crée pas un interblocage
+        if Task.has_circular_dependency(task_priority['id'], task_dep['id']):
+            cursor.close()
+            return {"message": "La dépendance crée un interblocage."}, 400
+
+        # Ajouter la dépendance
+        cursor.execute(
+            "INSERT INTO task_dependencies (task_id, dependent_task_id) VALUES (%s, %s)",
+            (task_priority['id'], task_dep['id'])
+        )
+        db.commit()
+        cursor.close()
+
+        return {"message": "Dépendance ajoutée avec succès."}, 201
+
+    @staticmethod
+    def has_circular_dependency(start_task_id, target_task_id):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Utiliser un algorithme de recherche pour détecter des cycles
+        stack = [start_task_id]
+        visited = set()
+
+        while stack:
+            current_task_id = stack.pop()
+            if current_task_id in visited:
+                continue
+            visited.add(current_task_id)
+
+            cursor.execute(
+                "SELECT dependent_task_id FROM task_dependencies WHERE task_id = %s",
+                (current_task_id,)
+            )
+            dependencies = cursor.fetchall()
+
+            for dep in dependencies:
+                if dep['dependent_task_id'] == target_task_id:
+                    cursor.close()
+                    return True
+                stack.append(dep['dependent_task_id'])
+
+        cursor.close()
+        return False

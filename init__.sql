@@ -68,4 +68,15 @@ create table task_assignments (
     FOREIGN KEY (username) REFERENCES users(username)
 );
 
+-- Table des dépendances entre tâches
+DROP TABLE IF EXISTS task_dependencies;
+CREATE TABLE task_dependencies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    dependent_task_id INT NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (dependent_task_id) REFERENCES tasks(id),
+    CONSTRAINT chk_no_circular_dependency CHECK (task_id <> dependent_task_id)
+);
+
 

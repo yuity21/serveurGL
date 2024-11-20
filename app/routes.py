@@ -222,3 +222,81 @@ def create_task():
 
     cursor.close()
     return jsonify({"message": "Tâche créée avec succès."}), 201
+
+@task.route('/add_dependency', methods=['POST'])
+def add_task_dependency():
+    data = request.get_json()
+    username = data.get('username')
+    task_name_priority = data.get('task_name_priority')
+    task_name_dep = data.get('task_name_dep')
+
+    # Vérifier les champs requis
+    if not all([username, task_name_priority, task_name_dep]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Vérifier les autorisations de l'utilisateur
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    if user['role'] not in ['administrateur', 'chef d\'équipe']:
+        return jsonify({"message": "Vous n'avez pas l'autorisation de définir des dépendances."}), 403
+
+    # Ajouter la dépendance
+    response, status_code = Task.add_dependency(task_name_priority, task_name_dep)
+    return jsonify(response), status_code
+
+@task.route('/update_state', methods=['POST'])
+def update_task_state():
+    data = request.get_json()
+    username = data.get('username')
+    task_name = data.get('task_name')
+    new_status = data.get('status')
+
+    if not all([username, task_name, new_status]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Vérifier les autorisations de l'utilisateur
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name,))
+    task = cursor.fetchone()
+
+    if not task:
+        cursor.close()
+        return jsonify({"message": "Tâche non trouvée."}), 404
+
+    # Vérifier les droits d'accès
+    if user['role'] not in ['administrateur', 'chef d\'équipe'] and user['username'] not in [task['created_by']]:
+        cursor.execute("SELECT * FROM task_assignments WHERE task_id = %s AND username = %s", (task['id'], username))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"message": "Vous n'avez pas les droits nécessaires pour modifier cette tâche."}), 403
+
+    # Vérifier les dépendances
+    if new_status in ['en cours', 'terminée']:
+        cursor.execute(
+            "SELECT * FROM task_dependencies WHERE dependent_task_id = %s", (task['id'],)
+        )
+        dependencies = cursor.fetchall()
+        for dependency in dependencies:
+            cursor.execute("SELECT status FROM tasks WHERE id = %s", (dependency['task_id'],))
+            dep_task = cursor.fetchone()
+            if dep_task and dep_task['status'] != 'terminée':
+                cursor.close()
+                return jsonify({"message": "La tâche ne peut pas être mise à jour tant que ses dépendances ne sont pas terminées."}), 400
+
+    # Mettre à jour l'état de la tâche
+    cursor.execute(
+        "UPDATE tasks SET status = %s WHERE id = %s",
+        (new_status, task['id'])
+    )
+    db.commit()
+    cursor.close()
+
+    return jsonify({"message": f"L'état de la tâche '{task_name}' a été mis à jour à '{new_status}'."}), 200
