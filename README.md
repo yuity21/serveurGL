@@ -1,6 +1,6 @@
 ## Guide d'utilisation rapide
 
-### Activation de l'environnement virtuel (toujours l'activer avant de lancer le code ou les test)
+### Activation de l'environnement virtuel(warning : le venv est propre et unique a chaque machine)
 
 **Windows:**
 ```
@@ -18,7 +18,7 @@ source venv/bin/activate
 deactivate
 ```
 
-### Lancement du serveur Flask
+### Lancement du serveur Flask (sans l'environnement virtuel et avoir installer les dépendances avant)
 
 ```
 python run.py
@@ -30,7 +30,7 @@ python run.py
 pip freeze > requirements.txt
 ```
 
-### Installer les dépendances à partir du fichier
+### Installer les dépendances à partir du fichier(obligatoire a faire si tu as clone le projet)
 
 ```
 pip install -r requirements.txt
