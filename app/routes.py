@@ -317,3 +317,68 @@ def update_task_state():
     cursor.close()
 
     return jsonify({"message": f"L'état de la tâche '{task_name}' a été mis à jour à '{new_status}'."}), 200
+
+@task.route('/display', methods=['POST'])
+def display_tasks():
+    data = request.get_json()
+    username = data.get('username')
+    nom_projet = data.get('nom_projet')
+
+    # Vérifier les champs requis
+    if not all([username, nom_projet]):
+        return jsonify({"message": "Le nom du projet et le nom d'utilisateur sont requis."}), 400
+
+    # Obtenir l'utilisateur
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    if not user:
+        cursor.close()
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Obtenir le projet par son nom
+    cursor.execute("SELECT * FROM projects WHERE name = %s", (nom_projet,))
+    projet = cursor.fetchone()
+    if not projet:
+        cursor.close()
+        return jsonify({"message": "Projet non trouvé."}), 404
+
+    # Obtenir les tâches selon le rôle de l'utilisateur
+    tasks = []
+
+    if user['role'] == 'administrateur':
+        # Administrateur : peut voir toutes les tâches du projet
+        cursor.execute("SELECT * FROM tasks WHERE project_id = %s", (projet['id'],))
+        tasks = cursor.fetchall()
+
+    elif user['role'] == 'chef d\'équipe':
+        # Chef d'équipe : peut voir toutes les tâches du projet s'il en fait partie
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (projet['id'], username))
+        project_member = cursor.fetchone()
+        if project_member:
+            cursor.execute("SELECT * FROM tasks WHERE project_id = %s", (projet['id'],))
+            tasks = cursor.fetchall()
+        else:
+            cursor.close()
+            return jsonify({"message": "Vous ne faites pas partie de ce projet."}), 403
+
+    elif user['role'] == 'utilisateur':
+        # Utilisateur : peut voir uniquement les tâches qui lui sont assignées dans le projet auquel il appartient
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (projet['id'], username))
+        project_member = cursor.fetchone()
+        if project_member:
+            cursor.execute("""
+                SELECT t.* FROM tasks t
+                JOIN task_assignments ta ON t.id = ta.task_id
+                WHERE t.project_id = %s AND ta.username = %s
+            """, (projet['id'], username))
+            tasks = cursor.fetchall()
+        else:
+            cursor.close()
+            return jsonify({"message": "Vous ne faites pas partie de ce projet."}), 403
+
+    cursor.close()
+    return jsonify({"tasks": tasks}), 200
+
