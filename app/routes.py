@@ -225,26 +225,43 @@ def create_task():
 
 @task.route('/add_dependency', methods=['POST'])
 def add_task_dependency():
-    data = request.get_json()
-    username = data.get('username')
-    task_name_priority = data.get('task_name_priority')
-    task_name_dep = data.get('task_name_dep')
+        data = request.get_json()
+        username = data.get('username')
+        task_name_priority = data.get('task_name_priority')
+        task_name_dep = data.get('task_name_dep')
 
-    # Vérifier les champs requis
-    if not all([username, task_name_priority, task_name_dep]):
-        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+        # Vérifier les champs requis
+        if not all([username, task_name_priority, task_name_dep]):
+            return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
 
-    # Vérifier les autorisations de l'utilisateur
-    user = User.find_by_username(username)
-    if not user:
-        return jsonify({"message": "Utilisateur non trouvé."}), 404
+        # Obtenir les tâches par leur nom
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
 
-    if user['role'] not in ['administrateur', 'chef d\'équipe']:
-        return jsonify({"message": "Vous n'avez pas l'autorisation de définir des dépendances."}), 403
+        cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name_priority,))
+        task_priority = cursor.fetchone()
 
-    # Ajouter la dépendance
-    response, status_code = Task.add_dependency(task_name_priority, task_name_dep)
-    return jsonify(response), status_code
+        cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name_dep,))
+        task_dep = cursor.fetchone()
+
+        if not task_priority or not task_dep:
+            cursor.close()
+            return jsonify({"message": "Une ou plusieurs tâches n'ont pas été trouvées."}), 404
+
+        # Vérifier que la dépendance ne crée pas un interblocage (cercle)
+        if Task.has_circular_dependency(task_priority['id'], task_dep['id']):
+            cursor.close()
+            return jsonify({"message": "La dépendance crée un interblocage."}), 400
+
+        # Ajouter la dépendance
+        cursor.execute(
+            "INSERT INTO task_dependencies (task_id, dependent_task_id) VALUES (%s, %s)",
+            (task_priority['id'], task_dep['id'])
+        )
+        db.commit()
+        cursor.close()
+
+        return jsonify({"message": "Dépendance ajoutée avec succès"}), 201
 
 @task.route('/update_state', methods=['POST'])
 def update_task_state():

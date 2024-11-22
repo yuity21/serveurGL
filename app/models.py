@@ -164,31 +164,25 @@ class Task:
         return {"message": "Dépendance ajoutée avec succès."}, 201
 
     @staticmethod
-    def has_circular_dependency(start_task_id, target_task_id):
+    @staticmethod
+    def has_circular_dependency(task_id, dependent_id):
+        """
+        Vérifie s'il existe une dépendance circulaire entre les tâches.
+        """
         db = get_db()
         cursor = db.cursor(dictionary=True)
 
-        # Utiliser un algorithme de recherche pour détecter des cycles
-        stack = [start_task_id]
-        visited = set()
-
-        while stack:
-            current_task_id = stack.pop()
-            if current_task_id in visited:
-                continue
-            visited.add(current_task_id)
-
-            cursor.execute(
-                "SELECT dependent_task_id FROM task_dependencies WHERE task_id = %s",
-                (current_task_id,)
-            )
+        # Fonction récursive pour vérifier les dépendances
+        def check_dependency(current_task_id, target_task_id):
+            if current_task_id == target_task_id:
+                return True
+            cursor.execute("SELECT dependent_task_id FROM task_dependencies WHERE task_id = %s", (current_task_id,))
             dependencies = cursor.fetchall()
-
-            for dep in dependencies:
-                if dep['dependent_task_id'] == target_task_id:
-                    cursor.close()
+            for dependency in dependencies:
+                if check_dependency(dependency['dependent_task_id'], target_task_id):
                     return True
-                stack.append(dep['dependent_task_id'])
+            return False
 
+        result = check_dependency(dependent_id, task_id)
         cursor.close()
-        return False
+        return result
