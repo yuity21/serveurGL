@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models import User, Project, Task
+from app.models import User, Project, Task, TaskComment
 from app.db import get_db
 from datetime import datetime
 
@@ -382,3 +382,51 @@ def display_tasks():
     cursor.close()
     return jsonify({"tasks": tasks}), 200
 
+@task.route('/comment', methods=['POST'])
+def add_task_comment():
+    data = request.get_json()
+    username = data.get('username')
+    task_name = data.get('task_name')
+    comment = data.get('comment')
+
+    # Vérifier les champs requis
+    if not all([username, task_name, comment]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Obtenir l'utilisateur
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    if not user:
+        cursor.close()
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Obtenir la tâche
+    cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name,))
+    task = cursor.fetchone()
+    if not task:
+        cursor.close()
+        return jsonify({"message": "Tâche non trouvée."}), 404
+
+    # Vérifier les droits d'accès
+    if user['role'] == 'administrateur':
+        # L'administrateur peut commenter toutes les tâches
+        pass
+    elif user['role'] == 'chef d\'équipe':
+        # Le chef d'équipe peut commenter toutes les tâches du projet s'il en fait partie
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (task['project_id'], username))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"message": "Vous ne faites pas partie de ce projet."}), 403
+    elif user['role'] == 'utilisateur':
+        # L'utilisateur peut seulement commenter les tâches auxquelles il est assigné
+        cursor.execute("SELECT * FROM task_assignments WHERE task_id = %s AND username = %s", (task['id'], username))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"message": "Vous n'avez pas le droit de commenter cette tâche."}), 403
+
+    # Ajouter le commentaire
+    response, status_code = TaskComment.add_comment(task['id'], username, comment)
+    cursor.close()
+    return jsonify(response), status_code

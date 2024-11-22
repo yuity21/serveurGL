@@ -186,3 +186,37 @@ class Task:
         result = check_dependency(dependent_id, task_id)
         cursor.close()
         return result
+
+class TaskComment:
+    def __init__(self, task_id, username, comment):
+        self.task_id = task_id
+        self.username = username
+        self.comment = comment
+
+    @staticmethod
+    def add_comment(task_id, username, comment):
+        db = get_db()
+        cursor = db.cursor()
+
+        # Ajouter le commentaire à la tâche
+        cursor.execute(
+            "INSERT INTO task_comments (task_id, username, comment) VALUES (%s, %s, %s)",
+            (task_id, username, comment)
+        )
+        db.commit()
+        cursor.close()
+        return {"message": "Commentaire ajouté avec succès."}, 201
+
+    @staticmethod
+    def get_comments(task_id):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Obtenir les commentaires de la tâche
+        cursor.execute(
+            "SELECT * FROM task_comments WHERE task_id = %s ORDER BY created_at ASC",
+            (task_id,)
+        )
+        comments = cursor.fetchall()
+        cursor.close()
+        return comments
