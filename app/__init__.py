@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask,jsonify
 from app.config import Config
 from app.routes import auth
 from app.db import close_db
@@ -15,6 +15,13 @@ def create_app():
 
     # Ferme la connexion à la base de données après chaque requête
     app.teardown_appcontext(close_db)
+
+    # Gestion des erreurs liées à la base de données
+    @app.errorhandler(ConnectionError)
+    def handle_db_connection_error(e):
+        response = jsonify({"message": str(e)})
+        response.status_code = 500  # Code HTTP pour erreur serveur
+        return response
 
     return app
 

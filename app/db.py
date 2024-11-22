@@ -13,7 +13,7 @@ def get_db():
                 database=current_app.config['MYSQL_DB']
             )
         except Error as e:
-            print(f"Error connecting to MySQL: {e}")
+            raise ConnectionError("La base de données MySQL n'est pas connectée.")
     return g.db
 
 def close_db(e=None):
