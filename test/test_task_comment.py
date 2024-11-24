@@ -58,7 +58,8 @@ class TaskCommentTestCase(unittest.TestCase):
         with self.app.app_context():
             db = get_db()
             cursor = db.cursor()
-
+            # Supprime les notifications créées pendant les tests
+            cursor.execute("DELETE FROM notifications WHERE username IN ('test_admin', 'test_user')")
             # Supprime tous les commentaires
             cursor.execute("""
                 DELETE FROM task_comments WHERE task_id IN (

@@ -59,7 +59,8 @@ class TimeTrackingTestCase(unittest.TestCase):
         with self.app.app_context():
             db = get_db()
             cursor = db.cursor()
-
+            # Supprime les notifications créées pendant les tests
+            cursor.execute("DELETE FROM notifications WHERE username IN ('test_admin', 'test_user')")
             # Supprime toutes les entrées de temps
             cursor.execute("DELETE FROM time_entries WHERE task_id IN (SELECT id FROM tasks WHERE project_id IN (SELECT id FROM projects WHERE name = 'test_project_timetracking'))")
             # Supprime les affectations de tâches

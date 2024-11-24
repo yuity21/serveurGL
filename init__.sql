@@ -101,5 +101,13 @@ CREATE TABLE time_entries (
     FOREIGN KEY (username) REFERENCES users(username)
 );
 
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50),
+    message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (username) REFERENCES users(username)
+);
 
 

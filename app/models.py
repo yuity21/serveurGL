@@ -264,3 +264,42 @@ class TimeTracking:
         time_entries = cursor.fetchall()
         cursor.close()
         return time_entries
+
+class Notification:
+    def __init__(self, username, message):
+        self.username = username
+        self.message = message
+
+    @staticmethod
+    def add_notification(username, message):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO notifications (username, message) VALUES (%s, %s)",
+            (username, message)
+        )
+        db.commit()
+        cursor.close()
+
+    @staticmethod
+    def get_notifications(username):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT * FROM notifications WHERE username = %s ORDER BY created_at DESC",
+            (username,)
+        )
+        notifications = cursor.fetchall()
+        cursor.close()
+        return notifications
+
+    @staticmethod
+    def mark_as_read(notification_id):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "UPDATE notifications SET is_read = TRUE WHERE id = %s",
+            (notification_id,)
+        )
+        db.commit()
+        cursor.close()

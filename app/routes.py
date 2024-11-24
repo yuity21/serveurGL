@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models import User, Project, Task, TaskComment, TimeTracking
+from app.models import User, Project, Task, TaskComment, TimeTracking, Notification
 from app.db import get_db
 from datetime import datetime
 
@@ -66,6 +66,9 @@ def create_project():
 
     # Créer le projet
     response, status_code = Project.create_project(name, description, start_date, end_date, state, username, members)
+    if status_code == 201:
+        for member in members:
+            Notification.add_notification(member, f"Vous avez été assigné au projet '{name}'.")
     return jsonify(response), status_code
 
 @project.route('/update_state', methods=['POST'])
@@ -219,6 +222,8 @@ def create_task():
 
     # Ajouter les membres assignés à la tâche
     Task.assign_members(task_id, assigned_to)
+    for member in assigned_to:
+        Notification.add_notification(member, f"Vous avez été assigné à la tâche '{task_name}' du projet '{project_name}'.")
 
     cursor.close()
     return jsonify({"message": "Tâche créée avec succès."}), 201
@@ -428,6 +433,12 @@ def add_task_comment():
 
     # Ajouter le commentaire
     response, status_code = TaskComment.add_comment(task['id'], username, comment)
+    if status_code == 201:
+        # Ajouter des notifications pour les membres assignés à la tâche
+        cursor.execute("SELECT username FROM task_assignments WHERE task_id = %s", (task['id'],))
+        assigned_users = cursor.fetchall()
+        for assigned_user in assigned_users:
+            Notification.add_notification(assigned_user['username'], f"Un nouveau commentaire a été ajouté à la tâche '{task_name}'.")
     cursor.close()
     return jsonify(response), status_code
 
@@ -536,3 +547,26 @@ def time_report():
         "total_time_minutes": total_time,
         "time_entries": time_entries
     }), 200
+
+@auth.route('/notifications', methods=['POST'])
+def get_notifications():
+    data = request.get_json()
+    username = data.get('username')
+
+    # Vérifier si l'utilisateur existe
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Obtenir les notifications
+    notifications = Notification.get_notifications(username)
+    return jsonify({"notifications": notifications}), 200
+
+@auth.route('/notifications/read', methods=['POST'])
+def mark_notification_as_read():
+    data = request.get_json()
+    notification_id = data.get('notification_id')
+
+    # Marquer la notification comme lue
+    Notification.mark_as_read(notification_id)
+    return jsonify({"message": "Notification marquée comme lue."}), 200

@@ -42,7 +42,8 @@ class TaskTestCase(unittest.TestCase):
         with self.app.app_context():
             db = get_db()
             cursor = db.cursor()
-
+            # Supprime les notifications créées pendant les tests
+            cursor.execute("DELETE FROM notifications WHERE username IN ('test_task_creator', 'test_regular_user')")
             # Supprime toutes les dépendances des tâches
             cursor.execute("DELETE FROM task_dependencies")
             # Supprime toutes les affectations des tâches

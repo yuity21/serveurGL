@@ -27,6 +27,8 @@ class ProjectTestCase(unittest.TestCase):
         with self.app.app_context():
             db = get_db()
             cursor = db.cursor()
+            # Supprime les notifications créées pendant les tests
+            cursor.execute("DELETE FROM notifications WHERE username IN ('project_creator')")
             # Supprimer les membres du projet avant de supprimer le projet
             cursor.execute("DELETE FROM project_members WHERE project_id IN (SELECT id FROM projects WHERE name LIKE 'test_project_%')")
             cursor.execute("DELETE FROM projects WHERE name LIKE 'test_project_%'")
