@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models import User, Project, Task, TaskComment
+from app.models import User, Project, Task, TaskComment, TimeTracking
 from app.db import get_db
 from datetime import datetime
 
@@ -430,3 +430,109 @@ def add_task_comment():
     response, status_code = TaskComment.add_comment(task['id'], username, comment)
     cursor.close()
     return jsonify(response), status_code
+
+@task.route('/time/track', methods=['POST'])
+def track_time():
+    data = request.get_json()
+
+    username = data.get('username')
+    task_name = data.get('task_name')
+    start_time_str = data.get('start_time')
+    end_time_str = data.get('end_time')
+
+    # Vérification des données fournies
+    if not all([username, task_name, start_time_str, end_time_str]):
+        return jsonify({"message": "Données manquantes"}), 400
+
+    # Conversion des chaînes de caractères en objets datetime
+    try:
+        start_time = datetime.fromisoformat(start_time_str)
+        end_time = datetime.fromisoformat(end_time_str)
+    except ValueError:
+        return jsonify({"message": "Format de date invalide. Utilisez un format ISO-8601."}), 400
+
+    # Vérification que l'heure de fin est postérieure à l'heure de début
+    if end_time <= start_time:
+        return jsonify({"message": "L'heure de fin doit être postérieure à l'heure de début."}), 400
+
+    # Vérifier si la tâche existe
+    cursor = get_db().cursor()
+    cursor.execute("SELECT id FROM tasks WHERE task_name = %s", (task_name,))
+    task = cursor.fetchone()
+
+    if not task:
+        return jsonify({"message": "Tâche non trouvée."}), 404
+
+    # Vérification que l'utilisateur est assigné à la tâche ou possède le droit de la modifier
+    cursor.execute("""
+        SELECT username 
+        FROM task_assignments 
+        WHERE task_id = %s AND username = %s
+    """, (task[0], username))
+    assigned_user = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT role 
+        FROM users 
+        WHERE username = %s
+    """, (username,))
+    user = cursor.fetchone()
+
+    if not assigned_user and (not user or user[0] not in ['administrateur']):
+        return jsonify({"message": "Vous n'avez pas accès à cette tâche."}), 403
+
+    # Enregistrer le suivi du temps dans la table `time_entries`
+    cursor.execute("""
+        INSERT INTO time_entries (task_id, username, start_time, end_time)
+        VALUES (%s, %s, %s, %s)
+    """, (task[0], username, start_time, end_time))
+    get_db().commit()
+    cursor.close()
+
+    return jsonify({"message": "Temps enregistré avec succès"}), 201
+
+
+@project.route('/report/time', methods=['POST'])
+def time_report():
+    data = request.get_json()
+    username = data.get('username')
+    project_name = data.get('project_name')
+
+    # Vérifier les champs requis
+    if not all([username, project_name]):
+        return jsonify({"message": "Tous les champs requis doivent être fournis."}), 400
+
+    # Vérifier l'utilisateur
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Vérifier le projet
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM projects WHERE name = %s", (project_name,))
+    project = cursor.fetchone()
+
+    if not project:
+        cursor.close()
+        return jsonify({"message": "Projet non trouvé."}), 404
+
+    # Vérifier si l'utilisateur a accès au projet
+    if user['role'] != 'administrateur':
+        cursor.execute("SELECT * FROM project_members WHERE project_id = %s AND username = %s", (project['id'], username))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"message": "Vous ne faites pas partie de ce projet."}), 403
+
+    # Obtenir les entrées de temps
+    time_entries = TimeTracking.get_time_entries(project_id=project['id'])
+    cursor.close()
+
+    # Calculer le temps total
+    total_time = sum(entry['duration_minutes'] for entry in time_entries)
+
+    return jsonify({
+        "project": project_name,
+        "total_time_minutes": total_time,
+        "time_entries": time_entries
+    }), 200

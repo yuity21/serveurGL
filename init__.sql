@@ -89,4 +89,17 @@ CREATE TABLE IF NOT EXISTS task_comments (
     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
 
+CREATE TABLE time_entries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT,
+    username VARCHAR(50),
+    start_time DATETIME,
+    end_time DATETIME,
+    duration_minutes INT GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time)) VIRTUAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (username) REFERENCES users(username)
+);
+
+
 

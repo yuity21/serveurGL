@@ -220,3 +220,47 @@ class TaskComment:
         comments = cursor.fetchall()
         cursor.close()
         return comments
+
+class TimeTracking:
+    def __init__(self, task_id, username, start_time, end_time):
+        self.task_id = task_id
+        self.username = username
+        self.start_time = start_time
+        self.end_time = end_time
+
+    @staticmethod
+    def add_time_entry(task_id, username, start_time, end_time):
+        db = get_db()
+        cursor = db.cursor()
+
+        # Ajouter une entrée de temps
+        cursor.execute(
+            "INSERT INTO time_entries (task_id, username, start_time, end_time) VALUES (%s, %s, %s, %s)",
+            (task_id, username, start_time, end_time)
+        )
+        db.commit()
+        cursor.close()
+        return {"message": "Temps enregistré avec succès."}, 201
+
+    @staticmethod
+    def get_time_entries(task_id=None, project_id=None):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        if task_id:
+            # Récupérer les entrées de temps pour une tâche spécifique
+            cursor.execute("SELECT * FROM time_entries WHERE task_id = %s ORDER BY created_at ASC", (task_id,))
+        elif project_id:
+            # Récupérer les entrées de temps pour un projet spécifique
+            cursor.execute("""
+                SELECT te.* FROM time_entries te
+                JOIN tasks t ON te.task_id = t.id
+                WHERE t.project_id = %s
+            """, (project_id,))
+        else:
+            cursor.close()
+            return []
+
+        time_entries = cursor.fetchall()
+        cursor.close()
+        return time_entries
