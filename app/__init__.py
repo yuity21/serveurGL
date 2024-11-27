@@ -1,11 +1,13 @@
 from flask import Flask,jsonify
 from app.config import Config
+from flask_cors import CORS
 from app.routes import auth
 from app.db import close_db
 from app.routes import project, task
 
 def create_app():
     app = Flask(__name__)
+    CORS(app)
     app.config.from_object(Config)
 
     # Enregistrement du blueprint
