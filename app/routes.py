@@ -6,6 +6,7 @@ from datetime import datetime
 auth = Blueprint('auth', __name__)
 project = Blueprint('project', __name__)
 task = Blueprint('task', __name__)
+user = Blueprint('user',__name__)
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -598,4 +599,52 @@ def get_assigned_users():
 
     except Exception as e:
         return jsonify({"message": f"Erreur : {str(e)}"}), 500
+    
+@user.route('/change_role', methods=['POST'])
+def change_role():
+    data = request.get_json()
+
+    # Vérifiez que le JSON contient tous les champs nécessaires
+    if not all(key in data for key in ['admin_username', 'target_username', 'new_role']):
+        return jsonify({"error": "Requête invalide. Champs requis : admin_username, target_username, new_role"}), 400
+
+    admin_username = data['admin_username']
+    target_username = data['target_username']
+    new_role = data['new_role']
+
+    # Vérifiez que le rôle demandé est valide
+    valid_roles = ['utilisateur', 'chef d\'équipe']
+    if new_role not in valid_roles:
+        return jsonify({"error": f"Rôle invalide. Rôles possibles : {', '.join(valid_roles)}"}), 400
+
+    with get_db() as conn:
+        cursor = conn.cursor(dictionary=True)
+
+        # Vérifiez que l'utilisateur qui effectue la demande est un administrateur
+        cursor.execute("SELECT role FROM users WHERE username = %s", (admin_username,))
+        admin = cursor.fetchone()
+        if not admin or admin['role'] != 'administrateur':
+            return jsonify({"error": "Seuls les administrateurs peuvent changer les rôles."}), 403
+
+        # Vérifiez que l'utilisateur cible existe et n'est pas administrateur
+        cursor.execute("SELECT username, role FROM users WHERE username = %s", (target_username,))
+        target_user = cursor.fetchone()
+        if not target_user:
+            return jsonify({"error": f"L'utilisateur '{target_username}' n'existe pas."}), 404
+        if target_user['role'] == 'administrateur':
+            return jsonify({"error": "Vous ne pouvez pas changer le rôle d'un administrateur."}), 403
+
+        # Vérifiez si le rôle demandé est déjà celui de l'utilisateur
+        if target_user['role'] == new_role:
+            return jsonify({"error": f"L'utilisateur '{target_username}' a déjà le rôle '{new_role}'."}), 400
+
+        # Mettez à jour le rôle de l'utilisateur cible
+        cursor.execute(
+            "UPDATE users SET role = %s WHERE username = %s",
+            (new_role, target_username)
+        )
+        conn.commit()
+
+    return jsonify({"message": f"Le rôle de '{target_username}' a été changé en '{new_role}' avec succès."}), 200
+
 
