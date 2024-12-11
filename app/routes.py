@@ -570,3 +570,32 @@ def mark_notification_as_read():
     # Marquer la notification comme lue
     Notification.mark_as_read(notification_id)
     return jsonify({"message": "Notification marquée comme lue."}), 200
+
+@task.route('/get_assigned_users', methods=['POST'])
+def get_assigned_users():
+    data = request.get_json()
+    entity_type = data.get('type')  # "project" ou "task"
+    entity_name = data.get('name')
+
+    # Validation des champs
+    if not all([entity_type, entity_name]):
+        return jsonify({"message": "Le type et le nom sont requis."}), 400
+
+    # Validation du type
+    if entity_type not in ["project", "task"]:
+        return jsonify({"message": "Type invalide. Utilisez 'project' ou 'task'."}), 400
+
+    try:
+        if entity_type == "project":
+            users = Project.get_assigned_users(entity_name)
+        else:  # entity_type == "task"
+            users = Task.get_assigned_users(entity_name)
+
+        if not users:
+            return jsonify({"message": f"Aucun utilisateur trouvé pour le {entity_type} '{entity_name}'."}), 404
+
+        return jsonify({"users": users}), 200
+
+    except Exception as e:
+        return jsonify({"message": f"Erreur : {str(e)}"}), 500
+

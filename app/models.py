@@ -95,6 +95,24 @@ class Project:
         db.commit()
         cursor.close()
         return {"message": "Projet créé avec succès."}, 201
+    
+    @staticmethod
+    def get_assigned_users(project_name):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        
+        # Rechercher les utilisateurs assignés à un projet
+        cursor.execute("""
+            SELECT u.username, u.email, u.role
+            FROM users u
+            JOIN project_members pm ON u.username = pm.username
+            JOIN projects p ON pm.project_id = p.id
+            WHERE p.name = %s
+        """, (project_name,))
+        
+        users = cursor.fetchall()
+        cursor.close()
+        return users
 
 class Task:
     def __init__(self, project_id, task_name, description, priority, status, due_date, created_by):
@@ -164,7 +182,6 @@ class Task:
         return {"message": "Dépendance ajoutée avec succès."}, 201
 
     @staticmethod
-    @staticmethod
     def has_circular_dependency(task_id, dependent_id):
         """
         Vérifie s'il existe une dépendance circulaire entre les tâches.
@@ -186,6 +203,24 @@ class Task:
         result = check_dependency(dependent_id, task_id)
         cursor.close()
         return result
+
+    @staticmethod
+    def get_assigned_users(task_name):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        
+        # Rechercher les utilisateurs assignés à une tâche
+        cursor.execute("""
+            SELECT u.username, u.email, u.role
+            FROM users u
+            JOIN task_assignments ta ON u.username = ta.username
+            JOIN tasks t ON ta.task_id = t.id
+            WHERE t.task_name = %s
+        """, (task_name,))
+        
+        users = cursor.fetchall()
+        cursor.close()
+        return users
 
 class TaskComment:
     def __init__(self, task_id, username, comment):
