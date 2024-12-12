@@ -678,5 +678,54 @@ def get_task_comments():
 
     return jsonify({"comments": comments}), 200
 
+@task.route('/dependencies', methods=['POST'])
+def get_task_dependencies():
+    data = request.get_json()
+
+    # Vérifiez si toutes les données nécessaires sont fournies
+    if not data or 'username' not in data or 'task_name' not in data:
+        return jsonify({"message": "Données invalides. Veuillez fournir 'username' et 'task_name'."}), 400
+
+    username = data['username']
+    task_name = data['task_name']
+
+    try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Vérifiez si l'utilisateur existe
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"message": "Utilisateur introuvable."}), 404
+
+        # Vérifiez si la tâche existe
+        cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name,))
+        task = cursor.fetchone()
+        if not task:
+            return jsonify({"message": f"La tâche '{task_name}' est introuvable."}), 404
+
+        # Récupérez les dépendances de la tâche
+        cursor.execute("""
+            SELECT t.task_name
+            FROM tasks t
+            JOIN task_dependencies td ON t.id = td.task_id
+            WHERE td.dependent_task_id = %s
+        """, (task['id'],))
+        dependencies = cursor.fetchall()
+
+        if not dependencies:
+            return jsonify({"message": f"La tâche '{task_name}' n'a pas de dépendances."}), 200
+
+        # Liste les noms des tâches dépendantes
+        dependency_names = [d['task_name'] for d in dependencies]
+        return jsonify({"message": f"Les tâches suivantes doivent être terminées avant de commencer '{task_name}' : {', '.join(dependency_names)}"}), 200
+
+    except Exception as e:
+        return jsonify({"message": f"Erreur serveur : {str(e)}"}), 500
+
+    finally:
+        cursor.close()
+
 
 
