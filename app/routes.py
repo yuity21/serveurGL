@@ -727,5 +727,44 @@ def get_task_dependencies():
     finally:
         cursor.close()
 
+@task.route('/time_tracking', methods=['POST'])
+def get_user_time_tracking():
+    data = request.get_json()
+    username = data.get('username')
+
+    # Vérification des champs requis
+    if not username:
+        return jsonify({"message": "Le nom d'utilisateur est requis."}), 400
+
+    # Vérification que l'utilisateur existe
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Obtenez les entrées de time tracking pour cet utilisateur
+        cursor.execute("""
+            SELECT te.start_time, te.end_time, te.duration_minutes, t.task_name
+            FROM time_entries te
+            JOIN tasks t ON te.task_id = t.id
+            WHERE te.username = %s
+            ORDER BY te.start_time ASC
+        """, (username,))
+        time_entries = cursor.fetchall()
+
+        cursor.close()
+
+        if not time_entries:
+            return jsonify({"message": "Aucune entrée de suivi de temps trouvée pour cet utilisateur."}), 404
+
+        return jsonify({"time_tracking": time_entries}), 200
+
+    except Exception as e:
+        return jsonify({"message": f"Erreur serveur : {str(e)}"}), 500
+
+
 
 
