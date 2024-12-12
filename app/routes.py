@@ -647,4 +647,36 @@ def change_role():
 
     return jsonify({"message": f"Le rôle de '{target_username}' a été changé en '{new_role}' avec succès."}), 200
 
+@task.route('/comments', methods=['POST'])
+def get_task_comments():
+    data = request.get_json()
+    username = data.get('username')
+    task_name = data.get('task_name')
+
+    # Vérification des champs requis
+    if not all([username, task_name]):
+        return jsonify({"message": "Le nom d'utilisateur et le nom de la tâche sont requis."}), 400
+
+    # Vérification que l'utilisateur existe
+    user = User.find_by_username(username)
+    if not user:
+        return jsonify({"message": "Utilisateur non trouvé."}), 404
+
+    # Vérification que la tâche existe
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM tasks WHERE task_name = %s", (task_name,))
+    task = cursor.fetchone()
+    if not task:
+        cursor.close()
+        return jsonify({"message": "Tâche non trouvée."}), 404
+
+    # Obtenir les commentaires de la tâche
+    comments = TaskComment.get_task_comments_with_details(task_name)
+    if not comments:
+        return jsonify({"message": "Aucun commentaire trouvé pour cette tâche."}), 404
+
+    return jsonify({"comments": comments}), 200
+
+
 

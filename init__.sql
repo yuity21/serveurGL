@@ -109,5 +109,3 @@ CREATE TABLE notifications (
     is_read BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (username) REFERENCES users(username)
 );
-
-

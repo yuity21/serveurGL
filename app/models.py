@@ -256,6 +256,25 @@ class TaskComment:
         cursor.close()
         return comments
 
+    @staticmethod
+    def get_task_comments_with_details(task_name):
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Rechercher les commentaires de la tâche avec les informations de l'utilisateur
+        cursor.execute("""
+            SELECT tc.comment, tc.created_at, u.username, u.email, u.role
+            FROM task_comments tc
+            JOIN tasks t ON tc.task_id = t.id
+            JOIN users u ON tc.username = u.username
+            WHERE t.task_name = %s
+            ORDER BY tc.created_at ASC
+        """, (task_name,))
+        comments = cursor.fetchall()
+        cursor.close()
+        return comments
+
+
 class TimeTracking:
     def __init__(self, task_id, username, start_time, end_time):
         self.task_id = task_id
