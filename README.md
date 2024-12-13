@@ -1,4 +1,4 @@
-## Guide d'utilisation rapide
+## Guide d'utilisation rapide (Projet GL fait par MOUKTAR HOUSSEN Shams Ryan et Hayat MEGHLAT)
 
 ### Activation de l'environnement virtuel(warning : le venv est propre et unique a chaque machine)
 
